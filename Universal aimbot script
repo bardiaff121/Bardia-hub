@@ -18,18 +18,19 @@ local TeleportService = game:GetService("TeleportService")
 local Lighting = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
 
--- تنظیمات ایم‌بات (Klaus Logic)
+-- تنظیمات ایم‌بات
 local AimSettings = {
     Enabled = false,
     TeamCheck = false,
     WallCheck = false,
     FOV = 100,
-    FOVColor = Color3.fromRGB(255, 255, 255),
+    FOVColor = Color3.fromRGB(255, 255, 255), -- رنگ ثابت شد
     HitPart = "Head",
+    HitboxEnabled = false,
     HitboxSize = 2
 }
 
--- متغیرهای سراسری (Restored)
+-- متغیرهای سراسری
 local SpecificTarget = "All"
 local Flying = false
 local FlySpeed = 50
@@ -48,7 +49,7 @@ FOVCircle.ZIndex = 999
 FOVCircle.Transparency = 1
 FOVCircle.Color = AimSettings.FOVColor
 
--- تابع پیدا کردن نزدیک‌ترین بازیکن (Klaus Engine)
+-- تابع پیدا کردن نزدیک‌ترین بازیکن
 local function getClosestPlayer()
     local closestPlayer = nil
     local shortestDistance = AimSettings.FOV
@@ -78,12 +79,33 @@ local function getClosestPlayer()
     return closestPlayer
 end
 
+-- تابع مدیریت Hitbox
+local function updateHitboxes()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            pcall(function()
+                for _, part in pairs(player.Character:GetChildren()) do
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        if AimSettings.HitboxEnabled then
+                            part.Size = Vector3.new(AimSettings.HitboxSize, AimSettings.HitboxSize, AimSettings.HitboxSize)
+                            part.Transparency = 0.7
+                            part.CanCollide = false
+                        else
+                            -- بازگرداندن به حالت عادی (نیاز به ریست کاراکتر یا تنظیم دستی دارد)
+                            -- در اکثر بازی‌ها با تغییر سایز مستقیم، مقدار قبلی ذخیره نمی‌شود.
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end
+
 -- رندر لوپ
 RunService.RenderStepped:Connect(function()
     FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     FOVCircle.Radius = AimSettings.FOV
     FOVCircle.Visible = AimSettings.Enabled
-    FOVCircle.Color = AimSettings.FOVColor
 
     if AimSettings.Enabled then
         local target = getClosestPlayer()
@@ -100,6 +122,10 @@ RunService.RenderStepped:Connect(function()
         Lighting.Ambient = Color3.fromRGB(255, 255, 255)
         Lighting.Brightness = 2
     end
+    
+    if AimSettings.HitboxEnabled then
+        updateHitboxes()
+    end
 end)
 
 -- تب‌ها
@@ -115,18 +141,23 @@ AimTab:CreateToggle({Name = "Aimbot Active", CurrentValue = false, Callback = fu
 AimTab:CreateToggle({Name = "Team Check", CurrentValue = false, Callback = function(v) AimSettings.TeamCheck = v end})
 AimTab:CreateToggle({Name = "Wall Check", CurrentValue = false, Callback = function(v) AimSettings.WallCheck = v end})
 AimTab:CreateSlider({Name = "FOV Size", Range = {1, 1000}, Increment = 5, CurrentValue = 100, Callback = function(v) AimSettings.FOV = v end})
-AimTab:CreateColorPicker({Name = "FOV Color", Color = Color3.fromRGB(255,255,255), Callback = function(v) AimSettings.FOVColor = v end})
 AimTab:CreateDropdown({Name = "Hit Part", Options = {"Head", "HumanoidRootPart", "UpperTorso"}, CurrentOption = {"Head"}, Callback = function(v) AimSettings.HitPart = v[1] end})
+
+AimTab:CreateSection("Target Settings")
 local TargetDrop = AimTab:CreateDropdown({Name = "Specific Target", Options = {"All"}, CurrentOption = {"All"}, Callback = function(v) SpecificTarget = v[1] end})
 AimTab:CreateButton({Name = "Refresh List", Callback = function() local L = {"All"}; for _, v in pairs(Players:GetPlayers()) do if v ~= LocalPlayer then table.insert(L, v.Name) end end; TargetDrop:Refresh(L, true) end})
 
---- MOVEMENT ---
+AimTab:CreateSection("Hitbox Mod")
+AimTab:CreateToggle({Name = "Enable Hitbox (بزرگ کردن پلیرها)", CurrentValue = false, Callback = function(v) AimSettings.HitboxEnabled = v end})
+AimTab:CreateSlider({Name = "Hitbox Size", Range = {2, 50}, Increment = 1, CurrentValue = 2, Callback = function(v) AimSettings.HitboxSize = v end})
+
+--- MOVEMENT (بدون تغییر) ---
 MoveTab:CreateSlider({Name = "WalkSpeed", Range = {16, 500}, Increment = 1, CurrentValue = 16, Callback = function(v) LocalPlayer.Character.Humanoid.WalkSpeed = v end})
 MoveTab:CreateSlider({Name = "JumpPower", Range = {50, 1000}, Increment = 1, CurrentValue = 50, Callback = function(v) LocalPlayer.Character.Humanoid.UseJumpPower = true; LocalPlayer.Character.Humanoid.JumpPower = v end})
 MoveTab:CreateToggle({Name = "FLY", CurrentValue = false, Callback = function(v) Flying = v end})
 MoveTab:CreateToggle({Name = "INFINITE JUMP", CurrentValue = false, Callback = function(v) _G.InfJump = v; UserInputService.JumpRequest:Connect(function() if _G.InfJump then LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping") end end) end})
 
---- VISUALS (ESP) ---
+--- VISUALS (بدون تغییر) ---
 VisualsTab:CreateToggle({Name = "Enable ESP", CurrentValue = false, Callback = function(v) 
     _G.ESP_Enabled = v
     task.spawn(function()
@@ -138,11 +169,11 @@ VisualsTab:CreateToggle({Name = "Enable ESP", CurrentValue = false, Callback = f
     end)
 end})
 
---- MISC ---
+--- MISC (بدون تغییر) ---
 MiscTab:CreateToggle({Name = "Full Bright", CurrentValue = false, Callback = function(v) _G.FullBright = v end})
 MiscTab:CreateButton({Name = "Remove Fog", Callback = function() pcall(function() Lighting.FogEnd = 999999 for _, v in pairs(Lighting:GetChildren()) do if v:IsA("Atmosphere") then v:Destroy() end end end) end})
 
---- SERVER (برگردانده شده) ---
+--- SERVER (بدون تغییر) ---
 ServerTab:CreateButton({Name = "Rejoin Server", Callback = function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end})
 ServerTab:CreateButton({Name = "Server Hop", Callback = function() 
     local Api = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
@@ -152,8 +183,8 @@ end})
 ServerTab:CreateButton({Name = "Copy Server ID", Callback = function() setclipboard(tostring(game.JobId)) Rayfield:Notify({Title="Server", Content="ID Copied!"}) end})
 ServerTab:CreateInput({Name = "Join Server with ID", PlaceholderText = "Paste ID...", Callback = function(Text) TeleportService:TeleportToPlaceInstance(game.PlaceId, Text, LocalPlayer) end})
 
---- TELEPORT ---
+--- TELEPORT (بدون تغییر) ---
 local TP_Drop = TeleportTab:CreateDropdown({Name = "Select Player", Options = {"Refresh Needed"}, Callback = function(v) local Target = Players:FindFirstChild(v[1]); if Target then LocalPlayer.Character.HumanoidRootPart.CFrame = Target.Character.HumanoidRootPart.CFrame end end})
 TeleportTab:CreateButton({Name = "Refresh Player List", Callback = function() local L = {}; for _, v in pairs(Players:GetPlayers()) do if v ~= LocalPlayer then table.insert(L, v.Name) end end; TP_Drop:Refresh(L, true) end})
 
-Rayfield:Notify({Title = "Bardia HUB", Content = "Everything Restored & Ready!", Duration = 5})
+Rayfield:Notify({Title = "Bardia HUB", Content = "Hitbox Mod Added & Color Picker Removed!", Duration = 5})
