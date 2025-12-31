@@ -1,0 +1,159 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Gemini Hub V11 | Complete & Fixed",
+   LoadingTitle = "Restoring All Features...",
+   LoadingSubtitle = "by Gemini",
+   ConfigurationSaving = { Enabled = true, FolderName = "GeminiV11", FileName = "Config" },
+   KeySystem = false
+})
+
+-- سرویس‌ها
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
+local HttpService = game:GetService("HttpService")
+
+-- تنظیمات ایم‌بات (Klaus Logic)
+local AimSettings = {
+    Enabled = false,
+    TeamCheck = false,
+    WallCheck = false,
+    FOV = 100,
+    FOVColor = Color3.fromRGB(255, 255, 255),
+    HitPart = "Head",
+    HitboxSize = 2
+}
+
+-- متغیرهای سراسری (Restored)
+local SpecificTarget = "All"
+local Flying = false
+local FlySpeed = 50
+_G.FullBright = false
+_G.InfJump = false
+_G.ESP_Enabled = false
+
+-- ایجاد FOV Circle
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 2
+FOVCircle.NumSides = 50
+FOVCircle.Radius = AimSettings.FOV
+FOVCircle.Filled = false
+FOVCircle.Visible = true
+FOVCircle.ZIndex = 999
+FOVCircle.Transparency = 1
+FOVCircle.Color = AimSettings.FOVColor
+
+-- تابع پیدا کردن نزدیک‌ترین بازیکن (Klaus Engine)
+local function getClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = AimSettings.FOV
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(AimSettings.HitPart) then
+            if SpecificTarget ~= "All" and player.Name ~= SpecificTarget then continue end
+            if AimSettings.TeamCheck and player.Team == LocalPlayer.Team then continue end
+            local pos, onScreen = Camera:WorldToViewportPoint(player.Character[AimSettings.HitPart].Position)
+            if onScreen then
+                local distance = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)).Magnitude
+                if distance < shortestDistance then
+                    if AimSettings.WallCheck then
+                        local ray = Ray.new(Camera.CFrame.Position, (player.Character[AimSettings.HitPart].Position - Camera.CFrame.Position).Unit * 500)
+                        local part = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
+                        if part and part:IsDescendantOf(player.Character) then
+                            closestPlayer = player
+                            shortestDistance = distance
+                        end
+                    else
+                        closestPlayer = player
+                        shortestDistance = distance
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+-- رندر لوپ
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVCircle.Radius = AimSettings.FOV
+    FOVCircle.Visible = AimSettings.Enabled
+    FOVCircle.Color = AimSettings.FOVColor
+
+    if AimSettings.Enabled then
+        local target = getClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild(AimSettings.HitPart) then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character[AimSettings.HitPart].Position)
+        end
+    end
+
+    if Flying and LocalPlayer.Character then
+        LocalPlayer.Character.HumanoidRootPart.Velocity = LocalPlayer.Character.Humanoid.MoveDirection * FlySpeed + Vector3.new(0, 2, 0)
+    end
+
+    if _G.FullBright then
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.Brightness = 2
+    end
+end)
+
+-- تب‌ها
+local AimTab = Window:CreateTab("🎯 Aimbot", 4483362458)
+local MoveTab = Window:CreateTab("Movement", "move")
+local VisualsTab = Window:CreateTab("Visuals (ESP)", "eye")
+local MiscTab = Window:CreateTab("Misc", "settings")
+local ServerTab = Window:CreateTab("Server", "server")
+local TeleportTab = Window:CreateTab("Teleport", "map-pin")
+
+--- AIMBOT ---
+AimTab:CreateToggle({Name = "Aimbot Active", CurrentValue = false, Callback = function(v) AimSettings.Enabled = v end})
+AimTab:CreateToggle({Name = "Team Check", CurrentValue = false, Callback = function(v) AimSettings.TeamCheck = v end})
+AimTab:CreateToggle({Name = "Wall Check", CurrentValue = false, Callback = function(v) AimSettings.WallCheck = v end})
+AimTab:CreateSlider({Name = "FOV Size", Range = {1, 1000}, Increment = 5, CurrentValue = 100, Callback = function(v) AimSettings.FOV = v end})
+AimTab:CreateColorPicker({Name = "FOV Color", Color = Color3.fromRGB(255,255,255), Callback = function(v) AimSettings.FOVColor = v end})
+AimTab:CreateDropdown({Name = "Hit Part", Options = {"Head", "HumanoidRootPart", "UpperTorso"}, CurrentOption = {"Head"}, Callback = function(v) AimSettings.HitPart = v[1] end})
+local TargetDrop = AimTab:CreateDropdown({Name = "Specific Target", Options = {"All"}, CurrentOption = {"All"}, Callback = function(v) SpecificTarget = v[1] end})
+AimTab:CreateButton({Name = "Refresh List", Callback = function() local L = {"All"}; for _, v in pairs(Players:GetPlayers()) do if v ~= LocalPlayer then table.insert(L, v.Name) end end; TargetDrop:Refresh(L, true) end})
+
+--- MOVEMENT ---
+MoveTab:CreateSlider({Name = "WalkSpeed", Range = {16, 500}, Increment = 1, CurrentValue = 16, Callback = function(v) LocalPlayer.Character.Humanoid.WalkSpeed = v end})
+MoveTab:CreateSlider({Name = "JumpPower", Range = {50, 1000}, Increment = 1, CurrentValue = 50, Callback = function(v) LocalPlayer.Character.Humanoid.UseJumpPower = true; LocalPlayer.Character.Humanoid.JumpPower = v end})
+MoveTab:CreateToggle({Name = "FLY", CurrentValue = false, Callback = function(v) Flying = v end})
+MoveTab:CreateToggle({Name = "INFINITE JUMP", CurrentValue = false, Callback = function(v) _G.InfJump = v; UserInputService.JumpRequest:Connect(function() if _G.InfJump then LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping") end end) end})
+
+--- VISUALS (ESP) ---
+VisualsTab:CreateToggle({Name = "Enable ESP", CurrentValue = false, Callback = function(v) 
+    _G.ESP_Enabled = v
+    task.spawn(function()
+        while _G.ESP_Enabled do
+            for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer and p.Character and not p.Character:FindFirstChild("Highlight") then Instance.new("Highlight", p.Character) end end
+            task.wait(1)
+        end
+        if not v then for _, p in pairs(Players:GetPlayers()) do if p.Character and p.Character:FindFirstChild("Highlight") then p.Character.Highlight:Destroy() end end end
+    end)
+end})
+
+--- MISC ---
+MiscTab:CreateToggle({Name = "Full Bright", CurrentValue = false, Callback = function(v) _G.FullBright = v end})
+MiscTab:CreateButton({Name = "Remove Fog", Callback = function() pcall(function() Lighting.FogEnd = 999999 for _, v in pairs(Lighting:GetChildren()) do if v:IsA("Atmosphere") then v:Destroy() end end end) end})
+
+--- SERVER (برگردانده شده) ---
+ServerTab:CreateButton({Name = "Rejoin Server", Callback = function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end})
+ServerTab:CreateButton({Name = "Server Hop", Callback = function() 
+    local Api = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
+    local _server = HttpService:JSONDecode(game:HttpGet(Api))
+    for _, s in pairs(_server.data) do if s.playing < s.maxPlayers and s.id ~= game.JobId then TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer) end end
+end})
+ServerTab:CreateButton({Name = "Copy Server ID", Callback = function() setclipboard(tostring(game.JobId)) Rayfield:Notify({Title="Server", Content="ID Copied!"}) end})
+ServerTab:CreateInput({Name = "Join Server with ID", PlaceholderText = "Paste ID...", Callback = function(Text) TeleportService:TeleportToPlaceInstance(game.PlaceId, Text, LocalPlayer) end})
+
+--- TELEPORT ---
+local TP_Drop = TeleportTab:CreateDropdown({Name = "Select Player", Options = {"Refresh Needed"}, Callback = function(v) local Target = Players:FindFirstChild(v[1]); if Target then LocalPlayer.Character.HumanoidRootPart.CFrame = Target.Character.HumanoidRootPart.CFrame end end})
+TeleportTab:CreateButton({Name = "Refresh Player List", Callback = function() local L = {}; for _, v in pairs(Players:GetPlayers()) do if v ~= LocalPlayer then table.insert(L, v.Name) end end; TP_Drop:Refresh(L, true) end})
+
+Rayfield:Notify({Title = "Gemini Ultra V11", Content = "Everything Restored & Ready!", Duration = 5})
