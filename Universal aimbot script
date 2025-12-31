@@ -1,10 +1,10 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Gemini Hub V11 | Complete & Fixed",
+   Name = "Universal Aimbot | BARDIA HUB",
    LoadingTitle = "Restoring All Features...",
-   LoadingSubtitle = "by Gemini",
-   ConfigurationSaving = { Enabled = true, FolderName = "GeminiV11", FileName = "Config" },
+   LoadingSubtitle = "by BARDIA",
+   ConfigurationSaving = { Enabled = true, FolderName = "BARDIA", FileName = "Config" },
    KeySystem = false
 })
 
@@ -156,4 +156,4 @@ ServerTab:CreateInput({Name = "Join Server with ID", PlaceholderText = "Paste ID
 local TP_Drop = TeleportTab:CreateDropdown({Name = "Select Player", Options = {"Refresh Needed"}, Callback = function(v) local Target = Players:FindFirstChild(v[1]); if Target then LocalPlayer.Character.HumanoidRootPart.CFrame = Target.Character.HumanoidRootPart.CFrame end end})
 TeleportTab:CreateButton({Name = "Refresh Player List", Callback = function() local L = {}; for _, v in pairs(Players:GetPlayers()) do if v ~= LocalPlayer then table.insert(L, v.Name) end end; TP_Drop:Refresh(L, true) end})
 
-Rayfield:Notify({Title = "Gemini Ultra V11", Content = "Everything Restored & Ready!", Duration = 5})
+Rayfield:Notify({Title = "Bardia HUB", Content = "Everything Restored & Ready!", Duration = 5})
