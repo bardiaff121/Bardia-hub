@@ -55,19 +55,36 @@ FOVCircle.ZIndex = 999
 FOVCircle.Transparency = 1
 FOVCircle.Color = AimSettings.FOVColor
 
--- تابع پیدا کردن نزدیک‌ترین بازیکن
+-- تابع جدید و اصلاح شده برای پیدا کردن نزدیک‌ترین بازیکن با WallCheck مدرن
 local function getClosestPlayer()
     local closestPlayer = nil
     local shortestDistance = AimSettings.FOV
+    
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(AimSettings.HitPart) then
             if SpecificTarget ~= "All" and player.Name ~= SpecificTarget then continue end
             if AimSettings.TeamCheck and player.Team == LocalPlayer.Team then continue end
-            local pos, onScreen = Camera:WorldToViewportPoint(player.Character[AimSettings.HitPart].Position)
+            
+            local targetPart = player.Character[AimSettings.HitPart]
+            local targetPos = targetPart.Position
+            local pos, onScreen = Camera:WorldToViewportPoint(targetPos)
+            
             if onScreen then
+                if AimSettings.WallCheck then
+                    local raycastParams = RaycastParams.new()
+                    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+                    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+                    
+                    local raycastResult = workspace:Raycast(Camera.CFrame.Position, (targetPos - Camera.CFrame.Position).Unit * 1000, raycastParams)
+                    if raycastResult and raycastResult.Instance:FindFirstAncestorOfClass("Model") ~= player.Character then
+                        continue 
+                    end
+                end
+                
                 local distance = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)).Magnitude
                 if distance < shortestDistance then
-                    closestPlayer = player; shortestDistance = distance
+                    closestPlayer = player
+                    shortestDistance = distance
                 end
             end
         end
@@ -105,7 +122,6 @@ RunService.RenderStepped:Connect(function()
         hrp.Velocity = oldV
     end
 
-    -- Hitbox Loop
     if AimSettings.HitboxEnabled then
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
@@ -114,14 +130,12 @@ RunService.RenderStepped:Connect(function()
                         part.Size = Vector3.new(AimSettings.HitboxSize, AimSettings.HitboxSize, AimSettings.HitboxSize)
                         part.Transparency = 0.7
                         part.CanCollide = false
-                        part.Massless = true
                     end
                 end
             end
         end
     end
 
-    -- ESP Loop
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
             local highlight = player.Character:FindFirstChild("BardiaHighlight")
@@ -147,7 +161,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- تب‌ها
+-- تب‌ها و رابط کاربری
 local AimTab = Window:CreateTab("🎯 Aimbot", 4483362458)
 local MoveTab = Window:CreateTab("Movement", "move")
 local VisualsTab = Window:CreateTab("Visuals (ESP)", "eye")
@@ -155,48 +169,32 @@ local MiscTab = Window:CreateTab("Misc", "settings")
 local ServerTab = Window:CreateTab("Server", "server")
 local TeleportTab = Window:CreateTab("Teleport", "map-pin")
 
---- AIMBOT ---
 AimTab:CreateToggle({Name = "Aimbot Active", CurrentValue = false, Callback = function(v) AimSettings.Enabled = v end})
 AimTab:CreateToggle({Name = "Team Check", CurrentValue = false, Callback = function(v) AimSettings.TeamCheck = v end})
 AimTab:CreateToggle({Name = "Wall Check", CurrentValue = false, Callback = function(v) AimSettings.WallCheck = v end})
 AimTab:CreateSlider({Name = "FOV Size", Range = {1, 1000}, Increment = 5, CurrentValue = 100, Callback = function(v) AimSettings.FOV = v end})
 AimTab:CreateDropdown({Name = "Hit Part", Options = {"Head", "HumanoidRootPart", "UpperTorso"}, CurrentOption = {"Head"}, Callback = function(v) AimSettings.HitPart = v[1] end})
-local TargetDrop = AimTab:CreateDropdown({Name = "Specific Target", Options = {"All"}, CurrentOption = {"All"}, Callback = function(v) SpecificTarget = v[1] end})
-AimTab:CreateButton({Name = "Refresh List", Callback = function() local L = {"All"}; for _, v in pairs(Players:GetPlayers()) do if v ~= LocalPlayer then table.insert(L, v.Name) end end; TargetDrop:Refresh(L, true) end})
-
-AimTab:CreateSection("Hitbox Mod (FIXED)")
 AimTab:CreateToggle({Name = "Enable Hitbox", CurrentValue = false, Callback = function(v) AimSettings.HitboxEnabled = v end})
-AimTab:CreateSlider({Name = "Hitbox Size", Range = {2, 100}, Increment = 1, CurrentValue = 2, Callback = function(v) AimSettings.HitboxSize = v end})
+AimTab:CreateSlider({Name = "Hitbox Size", Range = {2, 50}, Increment = 1, CurrentValue = 2, Callback = function(v) AimSettings.HitboxSize = v end})
 
---- MOVEMENT ---
 MoveTab:CreateSlider({Name = "WalkSpeed", Range = {16, 500}, Increment = 1, CurrentValue = 16, Callback = function(v) LocalPlayer.Character.Humanoid.WalkSpeed = v end})
-MoveTab:CreateSlider({Name = "JumpPower", Range = {50, 1000}, Increment = 1, CurrentValue = 50, Callback = function(v) LocalPlayer.Character.Humanoid.UseJumpPower = true; LocalPlayer.Character.Humanoid.JumpPower = v end})
 MoveTab:CreateToggle({Name = "FLY", CurrentValue = false, Callback = function(v) Flying = v end})
-MoveTab:CreateToggle({Name = "INFINITE JUMP", CurrentValue = false, Callback = function(v) _G.InfJump = v; UserInputService.JumpRequest:Connect(function() if _G.InfJump then LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping") end end) end})
+MoveTab:CreateToggle({Name = "INFINITE JUMP", CurrentValue = false, Callback = function(v) _G.InfJump = v end})
+UserInputService.JumpRequest:Connect(function() if _G.InfJump then LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping") end end)
 
---- VISUALS (ESP) ---
 VisualsTab:CreateToggle({Name = "Enable ESP", CurrentValue = false, Callback = function(v) ESP_Settings.Enabled = v end})
-VisualsTab:CreateToggle({Name = "Show Player Names", CurrentValue = false, Callback = function(v) ESP_Settings.ShowNames = v end})
-VisualsTab:CreateToggle({Name = "Show Player Health", CurrentValue = false, Callback = function(v) ESP_Settings.ShowHealth = v end})
+VisualsTab:CreateToggle({Name = "Show Names", CurrentValue = false, Callback = function(v) ESP_Settings.ShowNames = v end})
+VisualsTab:CreateToggle({Name = "Show Health", CurrentValue = false, Callback = function(v) ESP_Settings.ShowHealth = v end})
 VisualsTab:CreateColorPicker({Name = "ESP Color", Color = Color3.fromRGB(255,0,0), Callback = function(v) ESP_Settings.Color = v end})
 
---- MISC ---
 MiscTab:CreateToggle({Name = "WalkFling", CurrentValue = false, Callback = function(v) FlingEnabled = v end})
 MiscTab:CreateToggle({Name = "Full Bright", CurrentValue = false, Callback = function(v) _G.FullBright = v end})
-MiscTab:CreateButton({Name = "Remove Fog", Callback = function() pcall(function() Lighting.FogEnd = 999999 for _, v in pairs(Lighting:GetChildren()) do if v:IsA("Atmosphere") then v:Destroy() end end end) end})
 
---- SERVER ---
 ServerTab:CreateButton({Name = "Rejoin Server", Callback = function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end})
 ServerTab:CreateButton({Name = "Server Hop", Callback = function() 
     local Api = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
     local _server = HttpService:JSONDecode(game:HttpGet(Api))
     for _, s in pairs(_server.data) do if s.playing < s.maxPlayers and s.id ~= game.JobId then TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer) end end
 end})
-ServerTab:CreateButton({Name = "Copy Server ID", Callback = function() setclipboard(tostring(game.JobId)) Rayfield:Notify({Title="Server", Content="ID Copied!"}) end})
-ServerTab:CreateInput({Name = "Join Server with ID", PlaceholderText = "Paste ID...", Callback = function(Text) TeleportService:TeleportToPlaceInstance(game.PlaceId, Text, LocalPlayer) end})
 
---- TELEPORT ---
-local TP_Drop = TeleportTab:CreateDropdown({Name = "Select Player", Options = {"Refresh Needed"}, Callback = function(v) local Target = Players:FindFirstChild(v[1]); if Target then LocalPlayer.Character.HumanoidRootPart.CFrame = Target.Character.HumanoidRootPart.CFrame end end})
-TeleportTab:CreateButton({Name = "Refresh Player List", Callback = function() local L = {}; for _, v in pairs(Players:GetPlayers()) do if v ~= LocalPlayer then table.insert(L, v.Name) end end; TP_Drop:Refresh(L, true) end})
-
-Rayfield:Notify({Title = "Bardia HUB", Content = "Everything fixed and NO deletions!", Duration = 5})
+Rayfield:Notify({Title = "Bardia HUB", Content = "Everything fixed and Updated!", Duration = 5})
